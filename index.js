@@ -186,35 +186,40 @@ app.get("/health", (req, res) => {
   res.json({ status: "UP", timestamp: Date.now() });
 });
 
-// Start server after loading data
-const PORT = process.env.PORT || 3000;
-let server;
-(async () => {
-  try {
-    await loadData();
-    server = app.listen(PORT, () => {
-      console.log(`Voting API running on port ${PORT}`);
-      console.log(`Using local storage at: ${DATA_FILE}`);
-    });
-  } catch (err) {
-    console.error("Failed to start server:", err);
-    process.exit(1);
-  }
-})();
+// Export app for testing
+module.exports = app;
 
-// Graceful shutdown
-async function shutdown() {
-  console.log("Shutting down...");
-  try {
-    if (server) await new Promise((resolve) => server.close(resolve));
-    await saveData(); // Save data before exit
-    console.log("Shutdown complete");
-    process.exit(0);
-  } catch (err) {
-    console.error("Error during shutdown", err);
-    process.exit(1);
+// Start server after loading data (only when run directly)
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  let server;
+  (async () => {
+    try {
+      await loadData();
+      server = app.listen(PORT, () => {
+        console.log(`Voting API running on port ${PORT}`);
+        console.log(`Using local storage at: ${DATA_FILE}`);
+      });
+    } catch (err) {
+      console.error("Failed to start server:", err);
+      process.exit(1);
+    }
+  })();
+
+  // Graceful shutdown
+  async function shutdown() {
+    console.log("Shutting down...");
+    try {
+      if (server) await new Promise((resolve) => server.close(resolve));
+      await saveData(); // Save data before exit
+      console.log("Shutdown complete");
+      process.exit(0);
+    } catch (err) {
+      console.error("Error during shutdown", err);
+      process.exit(1);
+    }
   }
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
-
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);

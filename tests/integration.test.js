@@ -1,5 +1,15 @@
 const request = require('supertest');
-const app = require('../index');
+
+// Create a fresh app instance for each test
+let app;
+
+beforeEach(() => {
+  // Clear the require cache to get a fresh app
+  delete require.cache[require.resolve('../index')];
+  // Reset NODE_ENV to test for clean state
+  process.env.NODE_ENV = 'test';
+  app = require('../index');
+});
 
 describe('API Integration Tests', () => {
   describe('POST /votes', () => {
