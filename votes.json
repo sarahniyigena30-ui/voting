@@ -5,7 +5,13 @@
       "title": "Test Vote",
       "content": "Test Content",
       "created_at": "2025-12-09T13:15:24.260Z"
+    },
+    {
+      "id": 2,
+      "title": "bbbbbbb",
+      "content": "ggg",
+      "created_at": "2025-12-09T13:47:55.231Z"
     }
   ],
-  "nextId": 2
+  "nextId": 3
 }
