@@ -206,26 +206,58 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check for Kubernetes cluster
+        id: check-k8s
+        run: |
+          if [ -z "${{ secrets.KUBE_CONFIG }}" ]; then
+            echo "status=skipped" >> $GITHUB_OUTPUT
+            echo "⚠️  Kubernetes deployment skipped: KUBE_CONFIG secret not configured"
+          else
+            echo "status=configured" >> $GITHUB_OUTPUT
+          fi
+
       - name: Setup kubectl
+        if: steps.check-k8s.outputs.status == 'configured'
         uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
 
       - name: Configure kubectl
+        if: steps.check-k8s.outputs.status == 'configured'
         run: |
           mkdir -p $HOME/.kube
           echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
 
       - name: Deploy to Kubernetes
+        if: steps.check-k8s.outputs.status == 'configured'
         run: |
           VERSION=${{ needs.build.outputs.version }}
+          # Create namespace if it doesn't exist
+          kubectl create namespace ${{ env.KUBERNETES_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Apply deployment configuration
+          kubectl apply -f kubernetes/deployment.yaml
+          
+          # Update image
           kubectl set image deployment/voting-app voting-app=${{ env.DOCKER_IMAGE }}:$VERSION -n ${{ env.KUBERNETES_NAMESPACE }}
           kubectl rollout status deployment/voting-app -n ${{ env.KUBERNETES_NAMESPACE }} --timeout=5m
 
       - name: Verify deployment
+        if: steps.check-k8s.outputs.status == 'configured'
         run: |
           kubectl get pods -n ${{ env.KUBERNETES_NAMESPACE }}
           kubectl get services -n ${{ env.KUBERNETES_NAMESPACE }}
+
+      - name: Deployment Status
+        if: always()
+        run: |
+          if [ "${{ steps.check-k8s.outputs.status }}" = "configured" ]; then
+            echo "✅ Kubernetes deployment completed"
+          else
+            echo "ℹ️  Kubernetes deployment skipped (no cluster configured)"
+            echo "To enable Kubernetes deployments, add KUBE_CONFIG secret to your GitHub repository"
+          fi
 
       - name: Notify deployment
         if: always()
