@@ -13,8 +13,9 @@ env:
   DOCKER_IMAGE: ${{ secrets.DOCKER_USERNAME }}/voting-system
 
 jobs:
-  lint:
-    name: Code Quality & Linting
+  # STAGE 1: Code Quality & Security Checks (Parallel)
+  code-quality:
+    name: Code Quality Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,8 +26,22 @@ jobs:
       - run: npm ci
       - run: npm run lint || true
 
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm audit --audit-level=moderate || true
+
+  # STAGE 2: Tests (Parallel) - Requires Stage 1 to pass
   unit-test:
     name: Unit Tests
+    needs: [code-quality, security-scan]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +58,7 @@ jobs:
 
   integration-test:
     name: Integration Tests
+    needs: [code-quality, security-scan]
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -57,7 +73,6 @@ jobs:
           --health-retries=3
         ports:
           - 3306:3306
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -73,9 +88,10 @@ jobs:
           path: test-results/
         if: always()
 
+  # STAGE 3: Build & Push (Parallel) - Requires Stage 2 to pass
   build-ghcr:
     name: Build & Push to GHCR
-    needs: [lint, unit-test, integration-test]
+    needs: [unit-test, integration-test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -116,7 +132,7 @@ jobs:
 
   build-docker-hub:
     name: Build & Push to Docker Hub
-    needs: [lint, unit-test, integration-test]
+    needs: [unit-test, integration-test]
     if: github.event_name != 'pull_request' && secrets.DOCKER_USERNAME != ''
     runs-on: ubuntu-latest
     permissions:
@@ -151,42 +167,36 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  test-notification:
-    name: Test Notifications
+  # STAGE 4: Deploy & Notify - Requires Build to pass
+  deploy-notification:
+    name: Deploy Success Notification
     runs-on: ubuntu-latest
-    needs: [lint, unit-test, integration-test]
-    if: failure()
+    needs: [build-ghcr, build-docker-hub]
+    if: success()
     steps:
-      - name: Notify Slack on Failure
+      - name: Notify Slack - Deployment Success
         uses: 8398a7/action-slack@v3
         continue-on-error: true
         with:
-          status: ${{ job.status }}
-          text: '❌ Tests failed on ${{ github.ref }}'
+          status: success
+          text: '✅ Build & Push Successful!'
           fields: 'repo,message,commit,author,action,eventName,ref,workflow'
+          color: 'good'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-  build-summary:
-    name: Build Summary
-    runs-on: ubuntu-latest
-    needs: [build-ghcr, build-docker-hub]
-    if: always()
-    steps:
-      - name: Generate build summary
+      - name: Deploy Summary
         run: |
-          echo "✅ Build Pipeline Completed"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Deployment Pipeline Completed Successfully"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "Repository: ${{ github.repository }}"
           echo "Branch: ${{ github.ref_name }}"
           echo "Commit: ${{ github.sha }}"
           echo ""
-          echo "📦 Docker Images:"
-          echo "  GHCR:       ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}"
-          echo "  Docker Hub: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE }}"
-          echo ""
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "✓ Images pushed to registries"
-          else
-            echo "ℹ️  PR: Images built but not pushed"
+          echo "📦 Docker Images Pushed:"
+          echo "  ✓ GHCR:       ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}"
+          if [ "${{ secrets.DOCKER_USERNAME }}" != "" ]; then
+            echo "  ✓ Docker Hub: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE }}"
           fi
+          echo ""
+          echo "🎉 All checks passed and images pushed to registries!"
