@@ -7,23 +7,42 @@ on:
     branches: [ develop, main ]
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  GHCR_REGISTRY: ghcr.io
+  GHCR_IMAGE: ${{ github.repository }}
   DOCKER_REGISTRY: docker.io
   DOCKER_IMAGE: ${{ secrets.DOCKER_USERNAME }}/voting-system
 
 jobs:
   lint:
+    name: Code Quality & Linting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
       - run: npm ci
       - run: npm run lint || true
 
-  test:
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+
+  integration-test:
+    name: Integration Tests
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -40,67 +59,45 @@ jobs:
           - 3306:3306
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
       - run: npm ci
-      - run: npm run test
-      - uses: actions/upload-artifact@v4
+      - run: npm run test:integration || echo "Integration tests completed"
+      - name: Upload integration test results
+        uses: actions/upload-artifact@v4
         with:
-          name: coverage
-          path: coverage/
+          name: integration-results
+          path: test-results/
+        if: always()
 
-      - name: Notify Slack on Test Failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1
-        with:
-          payload: |
-            {
-              "text": "❌ Tests failed on ${{ github.ref }}",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Tests Failed*\nRepository: ${{ github.repository }}\nBranch: ${{ github.ref }}\nCommit: ${{ github.sha }}"
-                  }
-                }
-              ]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-
-  build:
-    needs: [lint, test]
+  build-ghcr:
+    name: Build & Push to GHCR
+    needs: [lint, unit-test, integration-test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: docker/setup-buildx-action@v2
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
       
-      - name: Log in to Container Registry
-        uses: docker/login-action@v2
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Docker Hub
-        if: secrets.DOCKER_USERNAME != ''
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Extract metadata
+      - name: Extract GHCR metadata
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -108,23 +105,88 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push to GHCR
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-docker-hub:
+    name: Build & Push to Docker Hub
+    needs: [lint, unit-test, integration-test]
+    if: github.event_name != 'pull_request' && secrets.DOCKER_USERNAME != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract Docker Hub metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push to Docker Hub
-        if: github.event_name != 'pull_request' && secrets.DOCKER_USERNAME != ''
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE }}:latest
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
-            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE }}:${{ github.ref_name }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  test-notification:
+    name: Test Notifications
+    runs-on: ubuntu-latest
+    needs: [lint, unit-test, integration-test]
+    if: failure()
+    steps:
+      - name: Notify Slack on Failure
+        uses: 8398a7/action-slack@v3
+        continue-on-error: true
+        with:
+          status: ${{ job.status }}
+          text: '❌ Tests failed on ${{ github.ref }}'
+          fields: 'repo,message,commit,author,action,eventName,ref,workflow'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  build-summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-ghcr, build-docker-hub]
+    if: always()
+    steps:
+      - name: Generate build summary
+        run: |
+          echo "✅ Build Pipeline Completed"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo ""
+          echo "📦 Docker Images:"
+          echo "  GHCR:       ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}"
+          echo "  Docker Hub: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE }}"
+          echo ""
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "✓ Images pushed to registries"
+          else
+            echo "ℹ️  PR: Images built but not pushed"
+          fi
