@@ -144,14 +144,14 @@ jobs:
           fail_ci_if_error: false
 
       - name: Send test notification
-        if: failure()
+        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
           text: 'Tests failed for ${{ github.repository }}'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          fields: 'repo,message,commit,author,action,eventName,ref,workflow'
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   release:
     name: Release & Push
@@ -260,11 +260,11 @@ jobs:
           fi
 
       - name: Notify deployment
-        if: always()
+        if: always() && secrets.SLACK_WEBHOOK_URL != ''
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
           text: 'Deployment ${{ job.status }} for version ${{ needs.build.outputs.version }}'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          fields: 'repo,message,commit,author,action,eventName,ref,workflow'
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
