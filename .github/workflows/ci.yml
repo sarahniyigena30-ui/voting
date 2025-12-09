@@ -26,6 +26,18 @@ jobs:
       - run: npm ci
       - run: npm run lint || true
 
+      - name: Notify Slack - Code Quality
+        if: always()
+        uses: 8398a7/action-slack@v3
+        continue-on-error: true
+        with:
+          status: ${{ job.status }}
+          text: '🔍 Code Quality Check: ${{ job.status }}'
+          fields: 'repo,message,commit,author,action,eventName,ref,workflow'
+          color: ${{ job.status == 'success' && 'good' || 'danger' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -37,6 +49,18 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm audit --audit-level=moderate || true
+
+      - name: Notify Slack - Security Scan
+        if: always()
+        uses: 8398a7/action-slack@v3
+        continue-on-error: true
+        with:
+          status: ${{ job.status }}
+          text: '🔐 Security Scan: ${{ job.status }}'
+          fields: 'repo,message,commit,author,action,eventName,ref,workflow'
+          color: ${{ job.status == 'success' && 'good' || 'danger' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   # STAGE 2: Tests (Parallel) - Requires Stage 1 to pass
   unit-test:
@@ -55,6 +79,18 @@ jobs:
         with:
           name: coverage
           path: coverage/
+
+      - name: Notify Slack - Unit Tests
+        if: always()
+        uses: 8398a7/action-slack@v3
+        continue-on-error: true
+        with:
+          status: ${{ job.status }}
+          text: '✅ Unit Tests: ${{ job.status }}'
+          fields: 'repo,message,commit,author,action,eventName,ref,workflow'
+          color: ${{ job.status == 'success' && 'good' || 'danger' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   integration-test:
     name: Integration Tests
@@ -87,6 +123,18 @@ jobs:
           name: integration-results
           path: test-results/
         if: always()
+
+      - name: Notify Slack - Integration Tests
+        if: always()
+        uses: 8398a7/action-slack@v3
+        continue-on-error: true
+        with:
+          status: ${{ job.status }}
+          text: '🔗 Integration Tests: ${{ job.status }}'
+          fields: 'repo,message,commit,author,action,eventName,ref,workflow'
+          color: ${{ job.status == 'success' && 'good' || 'danger' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   # STAGE 3: Build & Push (Parallel) - Requires Stage 2 to pass
   build-ghcr:
@@ -130,6 +178,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Notify Slack - Build GHCR
+        if: always()
+        uses: 8398a7/action-slack@v3
+        continue-on-error: true
+        with:
+          status: ${{ job.status }}
+          text: '🐳 Build & Push GHCR: ${{ job.status }}'
+          fields: 'repo,message,commit,author,action,eventName,ref,workflow'
+          color: ${{ job.status == 'success' && 'good' || 'danger' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
   build-docker-hub:
     name: Build & Push to Docker Hub
     needs: [unit-test, integration-test]
@@ -167,6 +227,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Notify Slack - Build Docker Hub
+        if: always()
+        uses: 8398a7/action-slack@v3
+        continue-on-error: true
+        with:
+          status: ${{ job.status }}
+          text: '🐳 Build & Push Docker Hub: ${{ job.status }}'
+          fields: 'repo,message,commit,author,action,eventName,ref,workflow'
+          color: ${{ job.status == 'success' && 'good' || 'danger' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
   # STAGE 4: Deploy & Notify - Requires Build to pass
   deploy-notification:
     name: Deploy Success Notification
@@ -174,12 +246,12 @@ jobs:
     needs: [build-ghcr, build-docker-hub]
     if: success()
     steps:
-      - name: Notify Slack - Deployment Success
+      - name: Notify Slack - Pipeline Success
         uses: 8398a7/action-slack@v3
         continue-on-error: true
         with:
           status: success
-          text: '✅ Build & Push Successful!'
+          text: '🎉 Pipeline Complete - All checks & builds passed!'
           fields: 'repo,message,commit,author,action,eventName,ref,workflow'
           color: 'good'
         env:
