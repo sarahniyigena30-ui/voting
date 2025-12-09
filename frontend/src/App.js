@@ -115,7 +115,7 @@ function App() {
       </main>
 
       <footer className="App-footer">
-        <p>DevOps Voting System - CI/CD Pipeline Demo</p>
+        <p>DevOps Votingg System - CI/CD Pipeline Demo</p>
       </footer>
     </div>
   );
