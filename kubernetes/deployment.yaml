@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: voting-api
+  labels:
+    app: voting-api
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: voting-api
+  template:
+    metadata:
+      labels:
+        app: voting-api
+    spec:
+      serviceAccountName: voting-api
+      containers:
+      - name: voting-api
+        image: ghcr.io/voting-system:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        env:
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: voting-db-secret
+              key: host
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: voting-db-secret
+              key: user
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: voting-db-secret
+              key: password
+        - name: DB_NAME
+          value: votesdb
+        - name: PORT
+          value: "3000"
+        
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 2
+        
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+        
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - voting-api
+              topologyKey: kubernetes.io/hostname

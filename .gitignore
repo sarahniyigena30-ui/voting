@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.local
+*.log
+dist/
+build/
+coverage/
+.DS_Store
+.vscode/
+.idea/
+*.pid
+.npm
+.eslintcache

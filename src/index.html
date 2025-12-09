@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voting System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🗳️ Voting System</h1>
+            <p>Manage your votes</p>
+        </header>
+
+        <main>
+            <!-- Create Vote Section -->
+            <section class="create-section">
+                <h2>Create New Vote</h2>
+                <form id="createForm">
+                    <input type="text" id="voteTitle" placeholder="Vote title" required>
+                    <textarea id="voteContent" placeholder="Vote description (optional)"></textarea>
+                    <button type="submit">Create Vote</button>
+                </form>
+            </section>
+
+            <!-- Votes List Section -->
+            <section class="votes-section">
+                <h2>All Votes</h2>
+                <div id="votesList" class="votes-list">
+                    <p class="loading">Loading votes...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

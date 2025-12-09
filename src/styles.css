@@ -1,0 +1,238 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    color: white;
+    margin-bottom: 40px;
+    padding: 20px;
+}
+
+header h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+
+header p {
+    font-size: 1.2em;
+    opacity: 0.9;
+}
+
+main {
+    display: grid;
+    gap: 30px;
+}
+
+section {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+h2 {
+    color: #667eea;
+    margin-bottom: 20px;
+    font-size: 1.5em;
+}
+
+/* Create Form */
+#createForm {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#createForm input,
+#createForm textarea {
+    padding: 12px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1em;
+    font-family: inherit;
+    transition: border-color 0.3s;
+}
+
+#createForm input:focus,
+#createForm textarea:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+#createForm textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+#createForm button {
+    padding: 12px 25px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+#createForm button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+/* Votes List */
+.votes-list {
+    display: grid;
+    gap: 15px;
+}
+
+.vote-item {
+    padding: 20px;
+    border: 2px solid #f0f0f0;
+    border-radius: 10px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.vote-item:hover {
+    border-color: #667eea;
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+}
+
+.vote-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 10px;
+}
+
+.vote-title {
+    font-size: 1.3em;
+    font-weight: 600;
+    color: #333;
+}
+
+.vote-id {
+    background: #667eea;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.85em;
+}
+
+.vote-content {
+    color: #666;
+    margin-bottom: 15px;
+    line-height: 1.6;
+}
+
+.vote-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.vote-date {
+    color: #999;
+    font-size: 0.9em;
+}
+
+.vote-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-edit,
+.btn-delete {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: transform 0.2s, opacity 0.2s;
+}
+
+.btn-edit {
+    background: #4CAF50;
+    color: white;
+}
+
+.btn-delete {
+    background: #f44336;
+    color: white;
+}
+
+.btn-edit:hover,
+.btn-delete:hover {
+    transform: translateY(-2px);
+    opacity: 0.9;
+}
+
+.loading,
+.error,
+.empty {
+    text-align: center;
+    color: #999;
+    padding: 20px;
+}
+
+.error {
+    color: #f44336;
+}
+
+.success-message {
+    background: #4CAF50;
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-align: center;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    header h1 {
+        font-size: 2em;
+    }
+    
+    .vote-header {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .vote-meta {
+        flex-direction: column;
+        gap: 10px;
+        align-items: start;
+    }
+}

@@ -1,0 +1,19 @@
+# <type>(<scope>): <subject>
+#
+# <body>
+#
+# <footer>
+#
+# Type should be one of: feat, fix, docs, style, refactor, test, chore
+# Scope: component or file being changed
+# Subject: imperative, present tense (max 50 chars)
+# Body: explain what and why (wrap at 72 chars)
+# Footer: reference issues (e.g., Fixes #123)
+#
+# Example:
+# feat(api): add user authentication endpoint
+#
+# Implemented JWT-based authentication with refresh tokens.
+# Added middleware for route protection.
+#
+# Fixes #42
